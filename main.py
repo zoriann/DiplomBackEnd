@@ -1,10 +1,13 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import sqlite3
 import os
 
 app = Flask(__name__)
 CORS(app)
+
+UPLOAD_FOLDER = os.path.join(os.getcwd(), "img")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def get_db_connection():
     conn = sqlite3.connect('database.db')
@@ -49,6 +52,23 @@ def update_product(product_id):
     conn.commit()
     conn.close()
     return jsonify({"success": True, "message": "Товар оновлено!"})
+
+@app.route("/api/upload", methods=["POST"])
+def upload_image():
+    if 'image' not in request.files:
+        return jsonify({"success": False, "message": "Файл не надіслано"}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"success": False, "message": "Порожня назва файлу"}), 400
+
+    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(file_path)
+    return jsonify({"success": True, "filename": file.filename, "message": "Файл завантажено"})
+
+@app.route("/img/<path:filename>")
+def serve_image(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 @app.route("/order", methods=["POST"])
 def receive_order():
