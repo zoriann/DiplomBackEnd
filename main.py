@@ -11,12 +11,44 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-@app.route("/api/products")
+@app.route("/api/products", methods=["GET"])
 def get_products():
     conn = get_db_connection()
     products = conn.execute("SELECT * FROM products").fetchall()
     conn.close()
     return jsonify([dict(row) for row in products])
+
+@app.route("/api/products", methods=["POST"])
+def add_product():
+    data = request.get_json()
+    conn = get_db_connection()
+    conn.execute(
+        "INSERT INTO products (name, price, category, image) VALUES (?, ?, ?, ?)",
+        (data["name"], data["price"], data["category"], data["image"]),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Товар додано!"})
+
+@app.route("/api/products/<int:product_id>", methods=["DELETE"])
+def delete_product(product_id):
+    conn = get_db_connection()
+    conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Товар видалено!"})
+
+@app.route("/api/products/<int:product_id>", methods=["PUT"])
+def update_product(product_id):
+    data = request.get_json()
+    conn = get_db_connection()
+    conn.execute(
+        "UPDATE products SET name = ?, price = ?, category = ?, image = ? WHERE id = ?",
+        (data["name"], data["price"], data["category"], data["image"], product_id),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Товар оновлено!"})
 
 @app.route("/order", methods=["POST"])
 def receive_order():
