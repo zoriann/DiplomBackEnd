@@ -2,12 +2,20 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import sqlite3
 import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)
 
-UPLOAD_FOLDER = os.path.join(os.getcwd(), "img")
+UPLOAD_FOLDER = 'static/images'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_db_connection():
     conn = sqlite3.connect('database.db')
@@ -56,19 +64,19 @@ def update_product(product_id):
 @app.route("/api/upload", methods=["POST"])
 def upload_image():
     if 'image' not in request.files:
-        return jsonify({"success": False, "message": "Файл не надіслано"}), 400
-
+        return jsonify({"success": False, "message": "Файл не знайдено"}), 400
     file = request.files['image']
     if file.filename == '':
-        return jsonify({"success": False, "message": "Порожня назва файлу"}), 400
+        return jsonify({"success": False, "message": "Порожнє ім’я файлу"}), 400
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return jsonify({"success": True, "message": "Файл збережено", "filename": filename}), 200
+    return jsonify({"success": False, "message": "Недозволений формат"}), 400
 
-    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(file_path)
-    return jsonify({"success": True, "filename": file.filename, "message": "Файл завантажено"})
-
-@app.route("/img/<path:filename>")
+@app.route("/static/images/<filename>")
 def serve_image(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route("/order", methods=["POST"])
 def receive_order():
